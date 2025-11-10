@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ES2020", // 适配Node.js的ES版本
+    "module": "CommonJS", // Node.js使用的模块系统
+    "moduleResolution": "Node", // 按Node.js规则解析模块
+    "esModuleInterop": true, // 关键：允许默认导入CommonJS模块
+    "skipLibCheck": true, // 跳过库类型检查（加快编译）
+    "forceConsistentCasingInFileNames": true // 强制文件名大小写一致
+  },
+  "include": ["server.ts"], // 要编译的文件
+  "exclude": ["node_modules"] // 排除node_modules
+}

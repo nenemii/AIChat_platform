@@ -1,0 +1,62 @@
+.container {
+  position: relative;
+}
+
+.fileInput {
+  display: none; /* 隐藏原生文件选择器 */
+}
+
+.uploadButton {
+  border: none;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.uploadButton:hover {
+  color: #333;
+}
+
+/* 文件名样式 */
+.fileName {
+  font-size: 13px;
+  color: #444;
+}
+
+/* 进度条样式 */
+.progressContainer {
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 160px;
+}
+
+.progressBar {
+  height: 6px;
+  background: #eee;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: #4285f4;
+  transition: width 0.3s ease;
+}
+
+/* 状态提示样式 */
+.success {
+  color: #0f9d58;
+  font-size: 13px;
+}
+
+.error {
+  color: #d93025;
+  font-size: 13px;
+}

@@ -1,62 +1,77 @@
 .container {
-  position: relative;
+  max-width: 800px;
+  margin: 20px auto;
+  padding: 20px;
 }
 
-.fileInput {
-  display: none; /* 隐藏原生文件选择器 */
-}
-
-.uploadButton {
+.uploadBtn {
+  padding: 10px 20px;
+  background: #4285f4;
+  color: white;
   border: none;
-  background: transparent;
-  color: #666;
+  border-radius: 4px;
   cursor: pointer;
+  font-size: 16px;
+}
+
+.uploadBtn:hover {
+  background: #3367d6;
+}
+
+.fileList {
+  margin-top: 20px;
+  border-top: 1px solid #eee;
+  padding-top: 20px;
+}
+
+.fileItem {
+  padding: 10px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.fileInfo {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.size {
+  color: #666;
   font-size: 14px;
-  padding: 4px 8px;
+}
+
+.progressContainer {
   display: flex;
   align-items: center;
-  gap: 4px;
-}
-
-.uploadButton:hover {
-  color: #333;
-}
-
-/* 文件名样式 */
-.fileName {
-  font-size: 13px;
-  color: #444;
-}
-
-/* 进度条样式 */
-.progressContainer {
-  font-size: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 160px;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
 .progressBar {
-  height: 6px;
-  background: #eee;
-  border-radius: 3px;
-  overflow: hidden;
+  flex: 1;
+  height: 8px;
 }
 
-.progressFill {
-  height: 100%;
-  background: #4285f4;
-  transition: width 0.3s ease;
+.progressText {
+  width: 40px;
+  text-align: right;
 }
 
-/* 状态提示样式 */
-.success {
-  color: #0f9d58;
-  font-size: 13px;
+.status {
+  color: #666;
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
 }
 
-.error {
-  color: #d93025;
-  font-size: 13px;
+.clearBtn {
+  padding: 4px 8px;
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 12px;
 }

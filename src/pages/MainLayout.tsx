@@ -1,4 +1,4 @@
-
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useChatStore } from "../store/chatStore";
 import styles from './MainLayout.module.css';
@@ -13,21 +13,33 @@ const MainLayout = ({ menuExpend }: MainLayoutProps) => {
   const { inputValue, setInputValue, addMessage, isLoading } = useChatStore();
 
   const handleHomeSend = () => {
-    if (!inputValue.trim() || isLoading) return;
+  if (!inputValue.trim() || isLoading) return;
 
-    // 添加用户消息
-    addMessage({
-      role: "user",
-      content: inputValue.trim(),
-      status: "complete"
-    });
+  const userMessage = inputValue.trim();
+  // 1. 添加用户消息
+  addMessage({
+    role: "user",
+    content: userMessage,
+    status: "complete"
+  });
 
-    // 跳转至对话页
-    navigate("/chat", { replace: false });
+  // 2. 轮询确认消息已添加到store（确保状态同步）
+  const checkInterval = setInterval(() => {
+    const { messages } = useChatStore.getState();
+    const lastMsg = messages[messages.length - 1];
+    // 确认最后一条消息是刚发送的用户消息
+    if (lastMsg?.role === "user" && lastMsg.content === userMessage) {
+      clearInterval(checkInterval);
+      // 3. 确认后再跳转
+      navigate("/chat");
+      setInputValue("");
+      console.log(`[MainLayout] 消息已同步，跳转至Chat页`);
+    }
+  }, 50); // 每50ms检查一次
 
-    // 清空输入框
-    setInputValue("");
-  };
+  // 超时保护（1秒后强制跳转，避免无限等待）
+  setTimeout(() => clearInterval(checkInterval), 1000);
+};
 
   return (
     <div className={menuExpend ? styles.rightBox : styles.bigChatContent}>

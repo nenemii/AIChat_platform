@@ -1,8 +1,10 @@
 import { create } from "zustand";
 import { fetchEventSource } from "@microsoft/fetch-event-source";
+import { useSessionStore } from "./sessionStore";
 
 interface Message {
   id: string;
+  sessionId: string;
   content: string;
   role: "user" | "assistant";
   status: "loading" | "complete";
@@ -15,7 +17,7 @@ interface ChatStore {
   error: string | null;
   abortController: AbortController | null;
   setInputValue: (value: string) => void;
-  addMessage: (msg: Omit<Message, "id">) => void;
+  addMessage: (msg: Omit<Message, "id" | "sessionId">) => void;
   clearMessages: () => void;
   appendAssistantMessage: (messageId: string, chunk: string) => void;
   sendMessage: () => Promise<void>;
@@ -32,10 +34,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   setInputValue: (value) => set({ inputValue: value }),
 
-  addMessage: (msg) => set((state) => ({
-    messages: [...state.messages, { ...msg, id: `${Date.now()}-${Math.random().toString(36).slice(-4)}` }],
-    inputValue: ""
-  })),
+  addMessage: (msg) => {
+    const { activeSessionId, ensureSession, touchSession } = useSessionStore.getState();
+    const sessionId = activeSessionId ?? ensureSession();
+    const id = `${Date.now()}-${Math.random().toString(36).slice(-4)}`;
+    touchSession(sessionId);
+    set((state) => ({
+      messages: [...state.messages, { ...msg, id, sessionId }],
+      inputValue: ""
+    }));
+  },
 
   clearMessages: () => set({ messages: [] }),
 
@@ -57,7 +65,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   sendMessage: async () => {
-    const { messages, isLoading, appendAssistantMessage} = get();
+    const { messages, isLoading, appendAssistantMessage } = get();
+    const { activeSessionId, ensureSession, touchSession } = useSessionStore.getState();
+    const sessionId = activeSessionId ?? ensureSession();
+    const sessionMessages = messages.filter((msg) => msg.sessionId === sessionId);
     console.log(`[${new Date().toLocaleTimeString()}] 进入 sendMessage 函数，isLoading=${isLoading}`);
 
     if (isLoading) {
@@ -65,20 +76,26 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       return;
     }
 
-    const lastMsg = messages[messages.length - 1];
-    console.log(`[${new Date().toLocaleTimeString()}] 最后一条消息：`, lastMsg ? JSON.stringify(lastMsg) : '无');
-    if (!lastMsg || lastMsg.role !== "user") {
+    //筛选所有用户消息，取最后一条
+    const userMessages = sessionMessages.filter(msg => msg.role === "user");
+    const lastUserMsg = userMessages[userMessages.length - 1];
+    console.log(`[${new Date().toLocaleTimeString()}] 最后一条用户消息：`, lastUserMsg ? JSON.stringify(lastUserMsg) : '无');
+
+    // 基于用户消息判断是否发起请求
+    if (!lastUserMsg) {
       console.log(`[${new Date().toLocaleTimeString()}] 未检测到有效用户消息，不发起 SSE`);
       return;
     }
 
-    // 创建AI加载消息
+    // 创建AI加载消息（此时消息列表最后一条会变成AI消息，但不影响前面的判断）
     const assistantMessageId = `${Date.now()}-assistant`;
     const abortController = new AbortController();
     console.log(`[${new Date().toLocaleTimeString()}] 创建 AI 加载消息，ID=${assistantMessageId}`);
+    touchSession(sessionId);
     set((state) => ({
       messages: [...state.messages, {
         id: assistantMessageId,
+        sessionId,
         content: "",
         role: "assistant",
         status: "loading"
@@ -88,16 +105,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       abortController
     }));
 
-    // 构建Qwen对话上下文
-    const conversationContext = messages
-      .filter(msg => msg.content.trim())
+    // 构建Qwen对话上下文（包含所有有效消息，确保上下文完整）
+    const conversationContext = sessionMessages
+      .filter(msg => msg.content.trim()) // 过滤空消息
       .map(({ role, content }) => ({
         role: role === "user" ? "user" : "assistant",
         content: content
       }));
     console.log(`[${new Date().toLocaleTimeString()}] 构建 Qwen 对话上下文：`, JSON.stringify(conversationContext));
 
-    // 30秒超时逻辑（避免一直loading）
+    // 30秒超时逻辑
     const timeoutId = setTimeout(() => {
       console.warn(`[${new Date().toLocaleTimeString()}] SSE 请求超时（30秒），自动结束加载状态`);
       set((state) => ({
@@ -129,7 +146,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
           if (event.data === "[DONE]") {
             console.log(`[${new Date().toLocaleTimeString()}] 收到 [DONE] 标识，更新 AI 消息为完成状态`);
-            clearTimeout(timeoutId); // 清除超时
+            clearTimeout(timeoutId);
             set((state) => ({
               messages: state.messages.map((msg) =>
                 msg.id === assistantMessageId ? { ...msg, status: "complete" } : msg
@@ -155,7 +172,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         onclose: () => {
           console.log(`[${new Date().toLocaleTimeString()}] SSE 连接关闭`);
           clearTimeout(timeoutId);
-          set({ isLoading: false, abortController: null });
+          set((state) => ({
+            isLoading: false,
+            abortController: null,
+            // 如果连接意外关闭但消息仍是loading状态，视为已结束，展示已收到的内容
+            messages: state.messages.map((msg) =>
+              msg.id === assistantMessageId && msg.role === "assistant" && msg.status === "loading"
+                ? { ...msg, status: "complete" }
+                : msg
+            )
+          }));
         },
         onerror: (err) => {
           console.error(`[${new Date().toLocaleTimeString()}] SSE 连接错误：`, err.stack);

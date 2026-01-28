@@ -1,4 +1,5 @@
 import styles from './ChatMessage.module.css';
+import { memo } from 'react';
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
@@ -13,19 +14,15 @@ const ChatMessage = ({ role, content, status = 'complete' }: ChatMessageProps) =
 
   // 渲染消息内容（加载状态显示动画）
   const renderMessageContent = () => {
-    if (role === 'assistant' && status === 'loading') {
-      return (
-        <div className={styles.loadingWrapper}>
-          <span className={styles.loadingText}>正在输入</span>
-          <span className={styles.loadingDots}>
-            <span>.</span>
-            <span>.</span>
-            <span>.</span>
-          </span>
-        </div>
-      );
+    if (role === 'assistant') {
+      // 对于助手消息：优先展示实时流式内容；如果还没有内容，给出简单占位
+      if (content && content.trim()) return content;
+      if (status === 'loading') return '正在输入...';
+      return '（无回复）';
     }
-    return content || '（无回复）';
+
+    // 用户消息直接展示内容
+    return content || '（空消息）';
   };
 
   return (
@@ -37,4 +34,4 @@ const ChatMessage = ({ role, content, status = 'complete' }: ChatMessageProps) =
   );
 };
 
-export default ChatMessage;
+export default memo(ChatMessage);

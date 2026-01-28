@@ -17,27 +17,15 @@ const ChatPage = ({ menuExpend }: ChatPageProps) => {
 
   console.log(`[${new Date().toLocaleTimeString()}] ChatPage 渲染，messages 长度：${messages.length}，isLoading：${isLoading}`);
 
-  // 监听用户消息，触发SSE请求
-  useEffect(() => {
-    console.log(`[${new Date().toLocaleTimeString()}] ChatPage 消息监听 useEffect 触发`);
-    const lastMsg = messages[messages.length - 1];
-    if (lastMsg?.role === "user" && !isLoading) {
-      console.log(`[${new Date().toLocaleTimeString()}] 检测到新用户消息，触发 sendMessage：`, lastMsg.content);
-      sendMessage().catch(err => {
-        console.error(`[${new Date().toLocaleTimeString()}] ChatPage 触发 SSE 失败：`, err);
-      });
-    }
-  }, [messages, isLoading, sendMessage]);
 
-  // 滚动到底部
+  // 消息变化时自动滚动到底部
   useEffect(() => {
     if (messageListRef.current) {
-      console.log(`[${new Date().toLocaleTimeString()}] 滚动到底部，scrollHeight：${messageListRef.current.scrollHeight}`);
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // 监听AI消息状态变化（关键：排查状态是否更新）
+  // 监听AI消息状态变化
   useEffect(() => {
     const aiMessages = messages.filter(msg => msg.role === 'assistant');
     const lastAiMsg = aiMessages[aiMessages.length - 1];
@@ -55,11 +43,11 @@ const ChatPage = ({ menuExpend }: ChatPageProps) => {
     };
   }, [cancelSSE]);
 
-  // 发送新消息
+  // 发送新消息（Chat页内发送）
   const handleChatSend = () => {
     console.log(`[${new Date().toLocaleTimeString()}] ChatPage 点击发送按钮`);
-    const { inputValue, addMessage, isLoading } = useChatStore.getState();
-    if (!inputValue.trim() || isLoading) {
+    const { inputValue, addMessage, isLoading: storeIsLoading } = useChatStore.getState();
+    if (!inputValue.trim() || storeIsLoading) {
       console.log(`[${new Date().toLocaleTimeString()}] 发送拦截：inputValue为空或isLoading=true`);
       return;
     }
@@ -70,6 +58,10 @@ const ChatPage = ({ menuExpend }: ChatPageProps) => {
       status: "complete"
     });
     console.log(`[${new Date().toLocaleTimeString()}] 已添加用户消息：${inputValue.trim()}`);
+    // 直接触发发送（SSE），不再依赖 useEffect 监听
+    sendMessage().catch(err => {
+      console.error(`[${new Date().toLocaleTimeString()}] ChatPage 点击发送后触发 SSE 失败：`, err);
+    });
   };
 
   return (

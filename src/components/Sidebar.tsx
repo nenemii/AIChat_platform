@@ -2,6 +2,7 @@
 import styles from './Sidebar.module.css';
 import menu from '../../src/assets/menu.png'
 import { Link, useLocation } from 'react-router-dom';
+import ThemeToggle from './ThemeToggle';
 
 // 定义菜单项类型
 interface SidebarMenuItem {
@@ -15,6 +16,8 @@ interface SidebarProps {
   menuExpend: boolean; // 侧边栏展开状态
   setMenuExpend: (expanded: boolean) => void; // 切换侧边栏的函数
 }
+
+
 const Sidebar = ({ menuExpend, setMenuExpend }: SidebarProps) => {
 
 const location = useLocation();
@@ -66,6 +69,7 @@ const currentPath = location.pathname;
           
         ))}
       </ul>
+      
     </div>
   );
 };

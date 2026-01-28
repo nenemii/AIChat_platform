@@ -13,12 +13,17 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "axios": "^1.6.8",
     "cors": "^2.8.5",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "multer": "^2.0.2",
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
+    "@types/multer": "^1.4.13",
+    "@types/uuid": "^8.3.4",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"
   }

@@ -7,9 +7,21 @@ import MainLayout from './pages/MainLayout';
 import {BrowserRouter as  Router,Routes, Route} from 'react-router-dom'
 import HistoryPage from './pages/history/HistoryPage';
 import SettingPage from './pages/setting/SettingPage';
+import { useEffect } from 'react';
+import { useThemeStore } from './store/themeStore';
+
 
 function App() {
   const [menuExpend, setMenuExpend] = useState(true);
+  const { initTheme } = useThemeStore();
+
+
+  useEffect(() => {
+    initTheme();
+  }, [initTheme]);
+
+
+
   return (
     <div className="App">
       

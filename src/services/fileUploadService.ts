@@ -81,7 +81,7 @@ const uploadChunks = async (file: File, fileId: string, chunks: Chunk[]) => {
 };
 
 export const uploadFile = async (file: File) => {
-  const { addFile, updateFileStatus } = useFileStore.getState();
+  const { addFile, updateFileStatus, setFileUrl } = useFileStore.getState();
   
   try {
     const fileId = await addFile(file);
@@ -112,8 +112,12 @@ export const uploadFile = async (file: File) => {
     const mergeData = await mergeRes.json();
     if (!mergeRes.ok) throw new Error(`合并失败: ${mergeData.error}`);
 
+    if (mergeData.url) {
+      setFileUrl(fileId, mergeData.url);
+    }
+
     updateFileStatus(fileId, "completed");
-    console.log(`[uploadFile] 文件上传完成: ${file.name}`);
+    console.log(`[uploadFile] 文件上传完成: ${file.name}，服务端URL=${mergeData.url}`);
   } catch (err) {
     console.error(`[uploadFile] 上传失败:`, err);
 

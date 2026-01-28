@@ -17,6 +17,7 @@ interface FileUpload {
   chunks: Chunk[];
   totalProgress: number;
   status: "pending" | "uploading" | "completed" | "error";
+  url?: string;
 }
 
 interface FileStore {
@@ -27,6 +28,7 @@ interface FileStore {
   updateFileStatus: (fileId: string, status: FileUpload["status"]) => void;
   calculateTotalProgress: (fileId: string) => void;
   clearFile: (fileId: string) => void;
+  setFileUrl: (fileId: string, url: string) => void;
 }
 
 export const useFileStore = create<FileStore>((set, get) => ({
@@ -131,5 +133,13 @@ export const useFileStore = create<FileStore>((set, get) => ({
 
   clearFile: (fileId) => {
     set((state) => ({ files: state.files.filter(f => f.fileId !== fileId) }));
+  },
+
+  setFileUrl: (fileId, url) => {
+    set((state) => ({
+      files: state.files.map(f =>
+        f.fileId === fileId ? { ...f, url } : f
+      )
+    }));
   }
 }));

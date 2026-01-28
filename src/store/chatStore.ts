@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { fetchEventSource } from "@microsoft/fetch-event-source";
 import { useSessionStore } from "./sessionStore";
+import { useFileStore } from "./fileStore";
 
 interface Message {
   id: string;
@@ -114,6 +115,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }));
     console.log(`[${new Date().toLocaleTimeString()}] 构建 Qwen 对话上下文：`, JSON.stringify(conversationContext));
 
+    // 取最近一个已完成上传的文件，作为本轮对话的文档上下文
+    const fileState = useFileStore.getState();
+    const completedFiles = fileState.files.filter(f => f.status === "completed" && f.url);
+    const latestFile = completedFiles[completedFiles.length - 1];
+    const fileContext = latestFile
+      ? { fileName: latestFile.name, url: latestFile.url as string }
+      : null;
+    if (fileContext) {
+      console.log(`[${new Date().toLocaleTimeString()}] 将随对话发送文档信息：`, fileContext);
+    }
+
     // 30秒超时逻辑
     const timeoutId = setTimeout(() => {
       console.warn(`[${new Date().toLocaleTimeString()}] SSE 请求超时（30秒），自动结束加载状态`);
@@ -132,7 +144,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       await fetchEventSource("http://localhost:3001/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ context: conversationContext }),
+        body: JSON.stringify({ context: conversationContext, file: fileContext }),
         signal: abortController.signal,
         keepalive: true,
         onopen: async(response) => {

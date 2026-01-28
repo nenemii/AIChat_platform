@@ -8,6 +8,8 @@ import fsPromises from 'fs/promises';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
+import mammoth from 'mammoth';
+import pdfParse from 'pdf-parse';
 
 // 扩展Express Request接口
 declare global {
@@ -96,6 +98,28 @@ const md5OfFile = async (filePath: string): Promise<string> => {
     stream.on('error', reject);
     stream.on('end', () => resolve(hash.digest('hex')));
   });
+};
+
+// 从上传的文件中提取文本内容（支持 docx / pdf）
+const extractTextFromFile = async (filePath: string): Promise<string> => {
+  const ext = path.extname(filePath).toLowerCase();
+
+  if (ext === '.docx') {
+    const result = await mammoth.extractRawText({ path: filePath });
+    return result.value || '';
+  }
+
+  if (ext === '.pdf') {
+    const buffer = await fsPromises.readFile(filePath);
+    const data = await pdfParse(buffer as unknown as Buffer);
+    return data.text || '';
+  }
+
+  if (ext === '.doc') {
+    throw new Error('暂不支持 .doc，请转换为 .docx 或 PDF 后再上传');
+  }
+
+  throw new Error(`不支持的文件类型: ${ext}`);
 };
 
 // 初始化服务器
@@ -251,11 +275,12 @@ const initServer = async () => {
           const chunkPath = path.join(CHUNK_DIR, `${fileId}-${i}`);
           await fsPromises.access(chunkPath);
 
-          await new Promise((resolve, reject) => {
+          // 确保每个分片读完后再处理下一个分片
+          await new Promise<void>((resolve, reject) => {
             const readStream = fs.createReadStream(chunkPath);
-            readStream.pipe(writeStream, { end: false });
-            readStream.on('end', ()=>resolve);
             readStream.on('error', reject);
+            readStream.on('end', () => resolve());
+            readStream.pipe(writeStream, { end: false });
           });
 
           await fsPromises.unlink(chunkPath);
@@ -294,7 +319,7 @@ const initServer = async () => {
     // AI对话接口
     app.post('/api/ai-chat', async (req: Request, res: Response) => {
       console.log(`[${new Date().toLocaleTimeString()}] 收到对话请求:`, req.body.context);
-      const { context } = req.body;
+      const { context, file } = req.body as { context: any[]; file?: { fileName: string; url: string } };
 
       const apiKey = process.env.DASHSCOPE_API_KEY || process.env.QWEN_API_KEY;
       if (!apiKey) {
@@ -307,6 +332,30 @@ const initServer = async () => {
         return res.end();
       }
 
+      // 如果前端携带了已上传文件信息，则尝试读取并提取文本，注入到对话上下文前面
+      const messages: any[] = [];
+      if (file && file.url) {
+        try {
+          const fileName = path.basename(file.url);
+          const filePath = path.join(UPLOAD_DIR, fileName);
+          await fsPromises.access(filePath);
+          const text = await extractTextFromFile(filePath);
+          if (text.trim()) {
+            messages.push({
+              role: 'user',
+              content: `以下是用户上传的文档内容（${file.fileName}）：\n\n${text}\n\n===== 文档内容结束 =====`
+            });
+          }
+        } catch (err) {
+          console.error(`[文档解析失败]`, err);
+          // 文档解析失败时，不阻塞对话，只在前面加一条说明
+          messages.push({
+            role: 'user',
+            content: `用户上传的文档（${file.fileName}）解析失败，请只根据后续对话内容回答。`
+          });
+        }
+      }
+
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
@@ -315,7 +364,7 @@ const initServer = async () => {
       try {
         const qwenResponse = await axios.post(
           'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
-          { model: 'qwen-plus', messages: context, stream: true },
+          { model: 'qwen-plus', messages: [...messages, ...context], stream: true },
           {
             headers: {
               'Content-Type': 'application/json',

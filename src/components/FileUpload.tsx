@@ -2,9 +2,13 @@ import { useRef } from "react";
 import { useFileStore } from "../store/fileStore";
 import { uploadFile } from "../services/fileUploadService";
 import styles from "./FileUpload.module.css";
+import { Dropdown, Button, Tooltip } from "antd";
+import type { MenuProps } from "antd";
+import { PlusOutlined, FileTextOutlined, PictureOutlined } from "@ant-design/icons";
 
 const FileUpload = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const { files, clearFile } = useFileStore();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -22,23 +26,65 @@ const FileUpload = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+    if (imageInputRef.current) {
+      imageInputRef.current.value = "";
+    }
+  };
+
+  const menuItems: MenuProps["items"] = [
+    {
+      key: "doc",
+      icon: <FileTextOutlined />,
+      label: "上传文档（PDF/Word）",
+    },
+    {
+      key: "img",
+      icon: <PictureOutlined />,
+      label: "上传图片",
+    },
+  ];
+
+  const handleMenuClick: MenuProps["onClick"] = ({ key }) => {
+    if (key === "doc") {
+      fileInputRef.current?.click();
+    } else if (key === "img") {
+      imageInputRef.current?.click();
+    }
   };
 
   return (
     <div className={styles.container}>
-      <button 
-        className={styles.uploadBtn}
-        onClick={() => fileInputRef.current?.click()}
+      <Dropdown
+        menu={{ items: menuItems, onClick: handleMenuClick }}
+        trigger={["click"]}
+        placement="topLeft"
       >
-        选择文件上传
-      </button>
+        <Tooltip title="上传文档或图片">
+          <Button
+            type="primary"
+            shape="circle"
+            icon={<PlusOutlined />}
+            className={styles.uploadBtn}
+          />
+        </Tooltip>
+      </Dropdown>
       <input
         ref={fileInputRef}
         type="file"
         multiple
         onChange={handleFileSelect}
+        accept=".pdf,.doc,.docx"
         className={styles.fileInput}
         style={{ display: 'none' }} // 隐藏原生输入框
+      />
+      <input
+        ref={imageInputRef}
+        type="file"
+        multiple
+        accept="image/*"
+        onChange={handleFileSelect}
+        className={styles.fileInput}
+        style={{ display: 'none' }}
       />
 
       {/* 上传列表 */}

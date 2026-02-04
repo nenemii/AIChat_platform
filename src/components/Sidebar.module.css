@@ -1,83 +1,15 @@
-/* src/components/Sidebar.module.css */
-/* 侧边栏整体容器：固定宽度、悬浮左侧 */
-.sidebar {
-  width: 240px;
-  background-color: #fff;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  height: 100vh;
-  position: fixed;
-  left: 0;
-  top: 0;
-  padding: 20px;
+/* Sidebar shell used inside Antd Sider */
+.sidebarShell {
+  height: 100%;
   display: flex;
   flex-direction: column;
-}
-.smallSidebar{
-  width: 40px;
-  background-color: #fff;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  height: 100vh;
-  position: fixed;
-  left: 0;
-  top: 0;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
+  padding: 16px 12px;
+  box-sizing: border-box;
 }
 
-/* Logo 样式 */
 .logo {
-  display: flex;
   font-size: 20px;
   font-weight: bold;
-  margin-bottom: 30px;
-  color: #007aff;
-  justify-content: space-between;
-}
-.logo img{
-  width: 20px;
-  height: 25px;
-}
-
-/* 菜单列表重置样式 */
-.menuList {
-  list-style: none;
-}
-
-/* 菜单项基础样式 */
-.menuItemBase {
-  display:flex ;
-  align-items: center;
-  margin-bottom: 15px;
-  gap: 10px;
-  padding: 12px 20px;
-  border-radius: 8px;
-  color: inherit;
-  text-decoration: none; /* 移除链接默认下划线 */
-  width: 80%; /* 确保点击区域充满整个 li */
-}
-
-.menuItemBase:hover {
-  background-color: #f0f0f0;
-}
-
-/* 菜单项选中态 */
-.activeMenuItem {
-  background-color: #e6f2ff;
-  color: #007aff;
-}
-
-.noMenuList{
-  display: none;
-}
-
-
-/* 图标区域 */
-.menuIcon {
-  font-size: 18px;
-}
-
-/* 文字区域 */
-.menuTitle {
-  font-size: 14px;
+  margin-bottom: 24px;
+  color: #1677ff;
 }

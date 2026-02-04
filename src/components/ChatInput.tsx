@@ -2,6 +2,8 @@ import styles from './ChatInput.module.css';
 import { useChatStore } from '../store/chatStore';
 import FileUpload from './FileUpload';
 import type { ReactNode } from 'react';
+import { Input, Button, Tooltip } from 'antd';
+import { SendOutlined, LoadingOutlined } from '@ant-design/icons';
 
 interface ChatInputProps {
   onSend: () => void;
@@ -17,9 +19,9 @@ const ChatInput = ({ onSend, sendButtonText = "发送" }: ChatInputProps) => {
     if (!inputValue.trim() || isLoading) return;
     onSend();
   };
-  
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey && !isLoading) {
+
+  const handlePressEnter = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!e.shiftKey && !isLoading) {
       e.preventDefault();
       handleSend();
     }
@@ -28,22 +30,28 @@ const ChatInput = ({ onSend, sendButtonText = "发送" }: ChatInputProps) => {
   return (
     <div className={styles.inputContainer}>
       <FileUpload />
-      <textarea 
-        className={styles.inputField} 
-        placeholder="请输入消息..." 
-        rows={1}
+      <Input.TextArea
+        className={styles.inputField}
+        placeholder="请输入消息，Shift+Enter 换行..."
+        autoSize={{ minRows: 1, maxRows: 4 }}
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
-        onKeyDown={handleKeyDown}
+        onPressEnter={handlePressEnter}
         disabled={isLoading}
+        aria-label="聊天输入框"
       />
-      <button 
-        className={styles.sendButton}
-        onClick={handleSend} 
-        disabled={!inputValue.trim() || isLoading}
-      >
-        {isLoading ? "发送中..." : sendButtonText}
-      </button>
+      <Tooltip title={isLoading ? '发送中...' : '发送'}>
+        <Button
+          type="primary"
+          shape="circle"
+          size="large"
+          icon={isLoading ? <LoadingOutlined /> : <SendOutlined />}
+          className={styles.sendButton}
+          onClick={handleSend}
+          disabled={!inputValue.trim() || isLoading}
+          aria-label="发送消息"
+        />
+      </Tooltip>
     </div>
   );
 };

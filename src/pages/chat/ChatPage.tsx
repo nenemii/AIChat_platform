@@ -2,6 +2,7 @@ import styles from './ChatPage.module.css';
 import ChatMessage from '../../components/ChatMessage';
 import ChatInput from '../../components/ChatInput';
 import { useChatStore } from '../../store/chatStore'; 
+import { useSessionStore } from '../../store/sessionStore';
 import { useRef, useEffect, memo } from 'react';
 
 interface ChatPageProps {
@@ -9,7 +10,11 @@ interface ChatPageProps {
 }
 
 const ChatPage = ({ menuExpend }: ChatPageProps) => {
-  const messages = useChatStore(state => state.messages);
+  const activeSessionId = useSessionStore(state => state.activeSessionId);
+  const allMessages = useChatStore(state => state.messages);
+  const messages = activeSessionId
+    ? allMessages.filter(msg => msg.sessionId === activeSessionId)
+    : allMessages;
   const sendMessage = useChatStore(state => state.sendMessage);
   const isLoading = useChatStore(state => state.isLoading);
   const cancelSSE = useChatStore(state => state.cancelSSE);

@@ -21,6 +21,7 @@
 .userAvatar, .aiAvatar {
   width: 36px;
   height: 36px;
+  flex: 0 0 36px;
   border-radius: 50%;
   margin: 0 8px;
   background-color: #007aff; /* 用户头像颜色 */

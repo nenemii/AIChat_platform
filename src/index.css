@@ -1,0 +1,17 @@
+/* 全局主题变量与基础背景 */
+:root {
+	--app-bg: #f5f7fa;
+	--card-bg: #ffffff;
+	--top-panel-bg: #f5f7fa;
+}
+
+html.dark {
+	--app-bg: #050816;
+	--card-bg: #111827;
+	--top-panel-bg: #111827;
+}
+
+body {
+	margin: 0;
+	background: var(--app-bg);
+}

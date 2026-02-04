@@ -1,4 +1,20 @@
-.themeToggle{
-  margin-left: 300px;
+.container {
+  padding: 24px;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+.card {
+  max-width: 640px;
+}
+
+.themeRow {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.themeToggle {
+  display: flex;
+  align-items: center;
 }

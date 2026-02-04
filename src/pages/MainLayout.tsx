@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useChatStore } from "../store/chatStore";
 import styles from './MainLayout.module.css';
 import ChatInput from "../components/ChatInput";
+import { Card, Typography } from 'antd';
 
 interface MainLayoutProps {
   menuExpend: boolean;
@@ -43,10 +44,15 @@ const MainLayout = ({ menuExpend }: MainLayoutProps) => {
 
   return (
     <div className={menuExpend ? styles.rightBox : styles.bigChatContent}>
-      <div className={styles.textBox}>
-        <p>有什么能帮助您的</p>
+      <div className={styles.heroWrapper}>
+        <Card className={styles.heroCard} bordered>
+          <Typography.Title level={2}>有什么能帮助您的？</Typography.Title>
+          <Typography.Paragraph type="secondary">
+            直接提问代码、产品、文档内容，或先上传文件再进行智能问答。
+          </Typography.Paragraph>
+        </Card>
       </div>
-      <ChatInput onSend={handleHomeSend} />
+      <ChatInput onSend={handleHomeSend} sendButtonText="开始聊天" />
     </div>
   );
 };

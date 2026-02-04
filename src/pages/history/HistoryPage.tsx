@@ -1,6 +1,7 @@
 import styles from './HistoryPage.module.css';
 import { useSessionStore } from '../../store/sessionStore';
 import { useNavigate } from 'react-router-dom';
+import { Card, List, Typography, Button, Empty } from 'antd';
 
 const HistoryPage = () => {
   const navigate = useNavigate();
@@ -19,34 +20,44 @@ const HistoryPage = () => {
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h2>会话历史</h2>
-        <button onClick={handleCreateSession} className={styles.newButton}>
-          新建会话
-        </button>
-      </div>
-      <ul className={styles.list}>
-        {sessions.length === 0 && (
-          <li className={styles.empty}>暂无会话，点击“新建会话”开始聊天</li>
+      <Card
+        title="会话历史"
+        extra={
+          <Button type="primary" onClick={handleCreateSession}>
+            新建会话
+          </Button>
+        }
+      >
+        {sessions.length === 0 ? (
+          <Empty description="暂无会话，点击“新建会话”开始聊天" />
+        ) : (
+          <List
+            itemLayout="vertical"
+            dataSource={sessions}
+            renderItem={(s) => (
+              <List.Item
+                key={s.id}
+                onClick={() => handleOpenSession(s.id)}
+                className={`${styles.item} ${s.id === activeSessionId ? styles.active : ''}`}
+              >
+                <List.Item.Meta
+                  title={
+                    <Typography.Text strong className={styles.title}>
+                      {s.title}
+                    </Typography.Text>
+                  }
+                  description={
+                    <div className={styles.meta}>
+                      <span>创建时间：{new Date(s.createdAt).toLocaleString()}</span>
+                      <span>最近活跃：{new Date(s.updatedAt).toLocaleString()}</span>
+                    </div>
+                  }
+                />
+              </List.Item>
+            )}
+          />
         )}
-        {sessions.map((s) => (
-          <li
-            key={s.id}
-            className={`${styles.item} ${s.id === activeSessionId ? styles.active : ''}`}
-            onClick={() => handleOpenSession(s.id)}
-          >
-            <div className={styles.title}>{s.title}</div>
-            <div className={styles.meta}>
-              <span>
-                创建时间：{new Date(s.createdAt).toLocaleString()}
-              </span>
-              <span>
-                最近活跃：{new Date(s.updatedAt).toLocaleString()}
-              </span>
-            </div>
-          </li>
-        ))}
-      </ul>
+      </Card>
     </div>
   );
 };

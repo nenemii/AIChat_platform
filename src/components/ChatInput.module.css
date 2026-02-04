@@ -1,31 +1,27 @@
 /* src/components/ChatInput.module.css */
-/* 输入框容器：固定在底部 */
+/* 输入区域：单行布局，圆形按钮 + 胶囊输入框 */
 .inputContainer {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
   padding: 16px 0;
-  
 }
 
-/* 输入框样式 */
+/* 输入框样式：大胶囊形 */
 .inputField {
   flex: 1;
-  padding: 12px 16px;
+  padding: 12px 18px;
   border: 1px solid #e5e7eb;
-  border-radius: 24px;
+  border-radius: 999px;
   font-size: 14px;
   resize: none;
   min-height: 48px;
   max-height: 120px;
 }
 
-/* 发送按钮样式 */
+/* 发送按钮：圆形图标按钮，保持与加号统一 */
 .sendButton {
-  padding: 0 16px;
-  border: none;
-  border-radius: 24px;
-  background-color: #007aff;
-  color: white;
-  font-size: 14px;
-  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }

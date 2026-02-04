@@ -15,6 +15,11 @@ const ChatPage = ({ menuExpend }: ChatPageProps) => {
   const messages = activeSessionId
     ? allMessages.filter(msg => msg.sessionId === activeSessionId)
     : allMessages;
+
+  // 过滤掉仅用于内部状态的“空内容 + loading”助手消息，避免出现单独一条“正在输入...”气泡
+  const visibleMessages = messages.filter(msg =>
+    !(msg.role === 'assistant' && msg.status === 'loading' && !msg.content.trim())
+  );
   const sendMessage = useChatStore(state => state.sendMessage);
   const isLoading = useChatStore(state => state.isLoading);
   const cancelSSE = useChatStore(state => state.cancelSSE);
@@ -29,6 +34,18 @@ const ChatPage = ({ menuExpend }: ChatPageProps) => {
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // 从首页跳转过来时，如果尾部是用户消息且当前未在加载中，则自动触发一次发送
+  useEffect(() => {
+    if (isLoading || messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last.role !== 'user') return;
+
+    console.log(`[${new Date().toLocaleTimeString()}] ChatPage 检测到尾部用户消息，自动触发 sendMessage`);
+    sendMessage().catch(err => {
+      console.error(`[${new Date().toLocaleTimeString()}] ChatPage 自动触发 SSE 失败：`, err);
+    });
+  }, [messages, isLoading, sendMessage]);
 
   // 监听AI消息状态变化
   useEffect(() => {
@@ -73,7 +90,7 @@ const ChatPage = ({ menuExpend }: ChatPageProps) => {
     <div className={styles.container}>
       <div className={menuExpend ? styles.chatContent : styles.bigChatContent}>
         <div className={styles.messageList} ref={messageListRef}>
-          {messages.map((msg) => (
+          {visibleMessages.map((msg) => (
             <ChatMessage
               key={msg.id}
               role={msg.role}

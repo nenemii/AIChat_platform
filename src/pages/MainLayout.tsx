@@ -14,33 +14,21 @@ const MainLayout = ({ menuExpend }: MainLayoutProps) => {
   const { inputValue, setInputValue, addMessage, isLoading } = useChatStore();
 
   const handleHomeSend = () => {
-  if (!inputValue.trim() || isLoading) return;
+    if (!inputValue.trim() || isLoading) return;
 
-  const userMessage = inputValue.trim();
-  // 1. 添加用户消息
-  addMessage({
-    role: "user",
-    content: userMessage,
-    status: "complete"
-  });
+    const userMessage = inputValue.trim();
+    // 1. 添加用户消息到当前会话
+    addMessage({
+      role: "user",
+      content: userMessage,
+      status: "complete"
+    });
 
-  // 2. 轮询确认消息已添加到store（确保状态同步）
-  const checkInterval = setInterval(() => {
-    const { messages } = useChatStore.getState();
-    const lastMsg = messages[messages.length - 1];
-    // 确认最后一条消息是刚发送的用户消息
-    if (lastMsg?.role === "user" && lastMsg.content === userMessage) {
-      clearInterval(checkInterval);
-      // 3. 确认后再跳转
-      navigate("/chat");
-      setInputValue("");
-      console.log(`[MainLayout] 消息已同步，跳转至Chat页`);
-    }
-  }, 50); // 每50ms检查一次
-
-  // 超时保护（1秒后强制跳转，避免无限等待）
-  setTimeout(() => clearInterval(checkInterval), 1000);
-};
+    // 2. 清空输入并跳转到聊天页，由 ChatPage 自动触发 sendMessage
+    setInputValue("");
+    navigate("/chat");
+    console.log(`[MainLayout] 从首页发送消息并跳转到 Chat 页：${userMessage}`);
+  };
 
   return (
     <div className={menuExpend ? styles.rightBox : styles.bigChatContent}>

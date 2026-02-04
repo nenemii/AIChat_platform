@@ -172,7 +172,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             const errorMsg = event.data.slice(7);
             console.error(`[${new Date().toLocaleTimeString()}] SSE 错误消息：${errorMsg}`);
             clearTimeout(timeoutId);
-            set({ error: errorMsg, isLoading: false, abortController: null });
+            set((state) => ({
+              error: errorMsg,
+              isLoading: false,
+              abortController: null,
+              messages: state.messages.map((msg) =>
+                msg.id === assistantMessageId
+                  ? { ...msg, status: "complete" }
+                  : msg
+              ),
+            }));
             return;
           }
 

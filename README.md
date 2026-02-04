@@ -110,7 +110,6 @@ npm run dev
 
 ---
 
-如果你希望我把 README 翻译成英文，或加入更详细的 API 文档（例如 `/api/ai-chat` 的请求/响应格式），告诉我我会继续补充。
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

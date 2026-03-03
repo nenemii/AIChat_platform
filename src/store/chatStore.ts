@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { fetchEventSource } from "@microsoft/fetch-event-source";
 import { useSessionStore } from "./sessionStore";
 import { useFileStore } from "./fileStore";
@@ -26,12 +27,14 @@ interface ChatStore {
   cancelSSE: () => void;
 }
 
-export const useChatStore = create<ChatStore>((set, get) => ({
-  messages: [],
-  inputValue: "",
-  isLoading: false,
-  error: null,
-  abortController: null,
+export const useChatStore = create<ChatStore>()(
+  persist(
+    (set, get) => ({
+      messages: [],
+      inputValue: "",
+      isLoading: false,
+      error: null,
+      abortController: null,
 
   setInputValue: (value) => set({ inputValue: value }),
 
@@ -67,8 +70,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   sendMessage: async () => {
     const { messages, isLoading, appendAssistantMessage } = get();
-    const { activeSessionId, ensureSession, touchSession } = useSessionStore.getState();
+    const { activeSessionId, ensureSession, touchSession, sessions } = useSessionStore.getState();
     const sessionId = activeSessionId ?? ensureSession();
+    const currentSession = sessions.find((s) => s.id === sessionId);
+    const mode = currentSession?.mode ?? "chat";
     const sessionMessages = messages.filter((msg) => msg.sessionId === sessionId);
     console.log(`[${new Date().toLocaleTimeString()}] 进入 sendMessage 函数，isLoading=${isLoading}`);
 
@@ -144,7 +149,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       await fetchEventSource("http://localhost:3001/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ context: conversationContext, file: fileContext }),
+        body: JSON.stringify({ context: conversationContext, file: fileContext, mode }),
         signal: abortController.signal,
         keepalive: true,
         onopen: async(response) => {
@@ -227,4 +232,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       });
     }
   }
-}));
+    }),
+    {
+      name: "chat-store",
+      // 只持久化 messages 与 inputValue，避免序列化不可序列化字段
+      partialize: (state) => ({
+        messages: state.messages,
+        inputValue: state.inputValue
+      })
+    }
+  )
+);

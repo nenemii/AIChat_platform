@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import mammoth from 'mammoth';
 import pdfParse from 'pdf-parse';
+import { Pinecone } from '@pinecone-database/pinecone';
 
 // 扩展Express Request接口
 declare global {
@@ -19,6 +20,33 @@ declare global {
     }
   }
 }
+
+
+
+type ChatMode = 'chat' | 'rag' | 'agent';
+
+interface VectorChunk {
+  id: string;
+  text: string;
+  embedding: number[];
+}
+
+interface VectorIndex {
+  fileName: string;
+  chunks: VectorChunk[];
+}
+
+const vectorStore = new Map<string, VectorIndex>();
+
+const DEFAULT_CHUNK_SIZE = 800; // 按字符数粗略切分
+
+// Pinecone 配置
+const PINECONE_API_KEY = process.env.PINECONE_API_KEY;
+const PINECONE_INDEX_NAME = process.env.PINECONE_INDEX_NAME || 'ai-chat-docs';
+
+const pinecone = PINECONE_API_KEY
+  ? new Pinecone({ apiKey: PINECONE_API_KEY })
+  : null;
 
 const app = express();
 
@@ -120,6 +148,205 @@ const extractTextFromFile = async (filePath: string): Promise<string> => {
   }
 
   throw new Error(`不支持的文件类型: ${ext}`);
+};
+
+// ==== 基于 DashScope 官方 embedding 接口的向量化与向量检索工具函数（本地内存向量库，仅存向量）====
+
+const splitIntoChunks = (text: string, size: number = DEFAULT_CHUNK_SIZE): string[] => {
+  const normalized = text.replace(/\r\n/g, '\n');
+  const paragraphs = normalized.split(/\n{2,}/);
+  const chunks: string[] = [];
+  let current = '';
+
+  for (const para of paragraphs) {
+    const candidate = current ? `${current}\n\n${para}` : para;
+    if (candidate.length > size && current) {
+      chunks.push(current.trim());
+      current = para;
+    } else {
+      current = candidate;
+    }
+  }
+
+  if (current.trim()) {
+    chunks.push(current.trim());
+  }
+
+  return chunks;
+};
+
+const cosineSimilarity = (a: number[], b: number[]): number => {
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  if (!normA || !normB) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+};
+
+// 调用 DashScope 兼容模式的 embedding 接口，生成文本向量
+const createEmbeddings = async (texts: string[], apiKey: string): Promise<number[][]> => {
+  if (!texts.length) return [];
+
+  const resp = await axios.post(
+    'https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings',
+    {
+      model: 'text-embedding-v2',
+      input: texts
+    },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`
+      }
+    }
+  );
+
+  const data: any = resp.data;
+  if (!data || !Array.isArray(data.data)) {
+    throw new Error('无效的 embedding 响应格式');
+  }
+
+  return data.data.map((item: any) => item.embedding as number[]);
+};
+
+// 读取并切分文件文本，调用 DashScope embedding 构建向量索引
+const indexFileToVectorStore = async (fileName: string, filePath: string) => {
+  try {
+    const apiKey = process.env.DASHSCOPE_API_KEY || process.env.QWEN_API_KEY;
+    if (!apiKey) {
+      console.warn(`[${new Date().toLocaleTimeString()}] 未配置 DASHSCOPE_API_KEY，跳过向量索引: ${fileName}`);
+      return;
+    }
+
+    const text = await extractTextFromFile(filePath);
+    if (!text.trim()) {
+      console.warn(`[${new Date().toLocaleTimeString()}] 文件文本为空，跳过向量索引: ${fileName}`);
+      return;
+    }
+
+    const rawChunks = splitIntoChunks(text, DEFAULT_CHUNK_SIZE);
+    if (!rawChunks.length) {
+      console.warn(`[${new Date().toLocaleTimeString()}] 文件切分结果为空，跳过向量索引: ${fileName}`);
+      return;
+    }
+
+    const embeddings = await createEmbeddings(rawChunks, apiKey);
+    if (!embeddings.length) {
+      console.warn(`[${new Date().toLocaleTimeString()}] 未获取到 embedding，跳过向量索引: ${fileName}`);
+      return;
+    }
+
+    const chunks: VectorChunk[] = rawChunks.map((chunkText, i) => ({
+      id: `${fileName}-${i}`,
+      text: chunkText,
+      embedding: embeddings[i] || []
+    }));
+
+    vectorStore.set(fileName, {
+      fileName,
+      chunks
+    });
+
+    console.log(
+      `[${new Date().toLocaleTimeString()}] 已为文件 ${fileName} 构建向量索引，分片数=${chunks.length}`
+    );
+
+    // 将向量写入 Pinecone，方便持久化与高性能相似度检索
+    if (pinecone) {
+      try {
+        const index = pinecone.index(PINECONE_INDEX_NAME);
+        await index.upsert(
+          chunks.map((chunk, i) => ({
+            id: chunk.id,
+            values: chunk.embedding,
+            metadata: {
+              fileName,
+              chunkIndex: i,
+              text: chunk.text
+            }
+          }))
+        );
+        console.log(
+          `[${new Date().toLocaleTimeString()}] 已将文件 ${fileName} 的向量分片写入 Pinecone，分片数=${chunks.length}`
+        );
+      } catch (err) {
+        console.error(`[Pinecone upsert 失败] file=${fileName}`, err);
+      }
+    } else {
+      console.warn(
+        `[${new Date().toLocaleTimeString()}] 未配置 PINECONE_API_KEY，当前仅使用内存向量索引（vectorStore）`
+      );
+    }
+  } catch (err) {
+    console.error(`[向量索引失败] file=${fileName}`, err);
+  }
+};
+
+// 使用 DashScope embedding 为问题生成向量，并与本地索引计算余弦相似度
+const retrieveRelevantChunks = async (
+  fileName: string,
+  question: string,
+  topK: number = 3
+): Promise<VectorChunk[]> => {
+  const apiKey = process.env.DASHSCOPE_API_KEY || process.env.QWEN_API_KEY;
+  if (!apiKey) {
+    console.warn(`[${new Date().toLocaleTimeString()}] 未配置 DASHSCOPE_API_KEY，无法执行向量检索`);
+    return [];
+  }
+
+  if (!question.trim()) return [];
+
+  const [queryVec] = await createEmbeddings([question], apiKey);
+  if (!queryVec || !queryVec.length) return [];
+
+  // 优先从 Pinecone 检索
+  if (pinecone) {
+    try {
+      const index = pinecone.index(PINECONE_INDEX_NAME);
+      const result = await index.query({
+        topK,
+        vector: queryVec,
+        includeMetadata: true,
+        filter: {
+          fileName
+        }
+      });
+
+      const matches = (result.matches || []).filter((m: any) => m.metadata && m.metadata.text);
+      if (matches.length > 0) {
+        return matches.map((m: any) => ({
+          id: m.id as string,
+          text: m.metadata.text as string,
+          embedding: []
+        }));
+      }
+    } catch (err) {
+      console.error(`[Pinecone query 失败] file=${fileName}`, err);
+    }
+  }
+
+  // 回退：使用内存中的向量索引
+  const index = vectorStore.get(fileName);
+  if (!index) {
+    console.warn(`[${new Date().toLocaleTimeString()}] 未找到本地向量索引，file=${fileName}`);
+    return [];
+  }
+
+  const scored = index.chunks
+    .map((chunk) => ({
+      chunk,
+      score: cosineSimilarity(queryVec, chunk.embedding)
+    }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK);
+
+  return scored.map((s) => s.chunk);
 };
 
 // 初始化服务器
@@ -306,6 +533,12 @@ const initServer = async () => {
 
         fileMetadata.delete(fileId);
         console.log(`[${new Date().toLocaleTimeString()}] 合并完成: ${filePath}`);
+
+        // 合并完成后，异步构建该文件的向量索引，用于后续 RAG 检索
+        indexFileToVectorStore(fileName, filePath).catch((err) => {
+          console.error(`[构建向量索引失败] file=${fileName}`, err);
+        });
+
         res.json({ success: true, url: `/uploads/${fileName}` });
       } catch (err) {
         console.error(`[合并失败]`, err);
@@ -316,10 +549,12 @@ const initServer = async () => {
     // 静态文件服务
     app.use('/uploads', express.static(UPLOAD_DIR));
 
-    // AI对话接口
+    // AI对话接口（支持 chat / rag / agent 模式）
     app.post('/api/ai-chat', async (req: Request, res: Response) => {
       console.log(`[${new Date().toLocaleTimeString()}] 收到对话请求:`, req.body.context);
-      const { context, file } = req.body as { context: any[]; file?: { fileName: string; url: string } };
+      const { context, file, mode } = req.body as { context: any[]; file?: { fileName: string; url: string }; mode?: ChatMode };
+
+      const chatMode: ChatMode = mode ?? 'chat';
 
       const apiKey = process.env.DASHSCOPE_API_KEY || process.env.QWEN_API_KEY;
       if (!apiKey) {
@@ -332,9 +567,48 @@ const initServer = async () => {
         return res.end();
       }
 
-      // 如果前端携带了已上传文件信息，则尝试读取并提取文本，注入到对话上下文前面
+      // 根据 mode 构建上游模型的 messages
       const messages: any[] = [];
-      if (file && file.url) {
+
+      // agent 模式：预先加入一个简单的 system 说明，后续可以在这里接工具调用循环
+      if (chatMode === 'agent') {
+        messages.push({
+          role: 'system',
+          content:
+            '你是一个可以分步骤思考的智能助手。如果任务复杂，请先列出解决步骤，再逐步给出详细答案。当前版本尚未接入真实工具调用，请直接在回答中清晰展示推理过程。'
+        });
+      }
+
+      // RAG 模式：优先使用向量检索命中的 Top-K 片段
+      if (chatMode === 'rag' && file && file.fileName) {
+        const lastUserMsg = [...context].reverse().find((m) => m.role === 'user');
+        if (lastUserMsg && typeof lastUserMsg.content === 'string') {
+          const chunks = await retrieveRelevantChunks(file.fileName, lastUserMsg.content, 3);
+          if (chunks.length > 0) {
+            const ragContext = chunks
+              .map((c, idx) => `【片段${idx + 1}】\n${c.text}`)
+              .join('\n\n');
+
+            messages.push({
+              role: 'system',
+              content:
+                '你是一个基于文档检索的问答助手。请严格优先依据下面提供的文档片段回答用户问题，如果文档中没有相关信息，请明确说明“文档中未找到相关内容”，不要编造。'
+            });
+
+            messages.push({
+              role: 'user',
+              content: `下面是与当前问题最相关的文档片段：\n\n${ragContext}`
+            });
+          } else {
+            console.warn(
+              `[${new Date().toLocaleTimeString()}] 向量检索未命中片段，file=${file.fileName}，将退回全文注入模式`
+            );
+          }
+        }
+      }
+
+      // 非 RAG 模式或 RAG 回退：若有上传文件，仍按原逻辑将全文注入上下文
+      if ((chatMode !== 'rag' || messages.length === 0) && file && file.url) {
         try {
           const fileName = path.basename(file.url);
           const filePath = path.join(UPLOAD_DIR, fileName);

@@ -6,6 +6,7 @@ export interface ChatSession {
   title: string;
   createdAt: number;
   updatedAt: number;
+  mode: "chat" | "rag" | "agent";
 }
 
 interface SessionStore {
@@ -17,6 +18,7 @@ interface SessionStore {
   touchSession: (id: string) => void;
   removeSession: (id: string) => void;
   ensureSession: () => string;
+  setSessionMode: (id: string, mode: ChatSession["mode"]) => void;
 }
 
 const generateId = () => {
@@ -39,7 +41,8 @@ export const useSessionStore = create<SessionStore>()(
           id,
           title,
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
+          mode: "chat"
         };
         set((state) => ({
           sessions: [session, ...state.sessions],
@@ -96,6 +99,14 @@ export const useSessionStore = create<SessionStore>()(
           return id;
         }
         return createSession();
+      },
+
+      setSessionMode: (id, mode) => {
+        set((state) => ({
+          sessions: state.sessions.map((s) =>
+            s.id === id ? { ...s, mode } : s
+          )
+        }));
       }
     }),
     {

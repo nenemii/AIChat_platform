@@ -33,6 +33,7 @@ const DashboardTopPanel = () => {
 
   const handleDelete = (id: string) => {
     setTodos((prev) => prev.filter((t) => t.id !== id));
+    
   };
 
   const remainingCount = todos.filter((t) => !t.done).length;

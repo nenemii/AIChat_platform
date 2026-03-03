@@ -11,6 +11,7 @@ interface ChatInputProps {
 }
 
 const ChatInput = ({ onSend, sendButtonText = "发送" }: ChatInputProps) => {
+  
   const inputValue = useChatStore(state => state.inputValue);
   const setInputValue = useChatStore(state => state.setInputValue);
   const isLoading = useChatStore(state => state.isLoading);

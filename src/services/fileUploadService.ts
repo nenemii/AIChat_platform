@@ -1,8 +1,10 @@
 import { useFileStore } from "../store/fileStore";
 import type { Chunk } from "../store/fileStore";
-import { md5OfBlob } from "../utils/md5";
+import { md5OfBlobWithWorkerFallback } from "../utils/hashWorkerClient";
+import { printHashPerfComparison, recordHashPerf } from "../utils/hashPerfMetrics";
 
 const CONCURRENT_LIMIT = 3;
+let hashPerfCounter = 0;
 
 const uploadSingleChunk = async (file: File, fileId: string, chunk: Chunk): Promise<boolean> => {
   const { updateChunkProgress, updateChunkStatus } = useFileStore.getState();
@@ -10,7 +12,20 @@ const uploadSingleChunk = async (file: File, fileId: string, chunk: Chunk): Prom
   const end = Math.min(start + chunk.size, file.size);
   const blob = file.slice(start, end);
 
-  const chunkMd5 = await md5OfBlob(blob);
+  const hashStart = performance.now();
+  const chunkHashResult = await md5OfBlobWithWorkerFallback(blob);
+  const hashDurationMs = performance.now() - hashStart;
+  const chunkMd5 = chunkHashResult.hash;
+  recordHashPerf({
+    taskType: "chunk",
+    mode: chunkHashResult.mode,
+    bytes: blob.size,
+    durationMs: hashDurationMs
+  });
+  hashPerfCounter += 1;
+  if (hashPerfCounter % 20 === 0) {
+    printHashPerfComparison();
+  }
 
   console.log(`[uploadSingleChunk] 准备上传分片: fileId=${fileId}, chunkIndex=${chunk.index}`); // 新增日志：确认参数值
 

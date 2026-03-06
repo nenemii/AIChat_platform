@@ -1,5 +1,8 @@
 import { create } from "zustand";
-import { md5OfFile } from "../utils/md5";
+import { md5OfFileWithWorkerFallback } from "../utils/hashWorkerClient";
+import { printHashPerfComparison, recordHashPerf } from "../utils/hashPerfMetrics";
+
+let hashPerfCounter = 0;
 
 export interface Chunk {
   index: number;
@@ -40,7 +43,20 @@ export const useFileStore = create<FileStore>((set, get) => ({
     console.log(`[FileStore] 初始化文件: ${file.name}, 总分片: ${totalChunks}`);
 
     console.log(`[FileStore] 开始计算文件MD5: ${file.name}`);
-    const fileMd5 = await md5OfFile(file);
+    const hashStart = performance.now();
+    const fileHashResult = await md5OfFileWithWorkerFallback(file);
+    const hashDurationMs = performance.now() - hashStart;
+    const fileMd5 = fileHashResult.hash;
+    recordHashPerf({
+      taskType: "file",
+      mode: fileHashResult.mode,
+      bytes: file.size,
+      durationMs: hashDurationMs
+    });
+    hashPerfCounter += 1;
+    if (hashPerfCounter % 20 === 0) {
+      printHashPerfComparison();
+    }
     console.log(`[FileStore] 文件MD5计算完成: ${file.name}, md5=${fileMd5}`);
 
     try {

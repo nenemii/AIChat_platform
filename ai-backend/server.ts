@@ -260,8 +260,8 @@ const indexFileToVectorStore = async (fileName: string, filePath: string) => {
     if (pinecone) {
       try {
         const index = pinecone.index(PINECONE_INDEX_NAME);
-        await index.upsert(
-          chunks.map((chunk, i) => ({
+        await index.upsert({
+          records: chunks.map((chunk, i) => ({
             id: chunk.id,
             values: chunk.embedding,
             metadata: {
@@ -270,7 +270,7 @@ const indexFileToVectorStore = async (fileName: string, filePath: string) => {
               text: chunk.text
             }
           }))
-        );
+        });
         console.log(
           `[${new Date().toLocaleTimeString()}] 已将文件 ${fileName} 的向量分片写入 Pinecone，分片数=${chunks.length}`
         );
@@ -638,7 +638,7 @@ const initServer = async () => {
       try {
         const qwenResponse = await axios.post(
           'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
-          { model: 'qwen-plus', messages: [...messages, ...context], stream: true },
+          { model: 'qwen3.5-plus', messages: [...messages, ...context], stream: true },
           {
             headers: {
               'Content-Type': 'application/json',
